@@ -1,10 +1,9 @@
-from flood_it import flood_it
-
+from .flood_it import config_logging, handle_request
 
 def handle(req):
     """handle a request to the function
     Args:
         req (str): request body
     """
-
-    return flood_it(req)
+    config_logging(use_stdout=True)
+    return handle_request(req)

@@ -14,6 +14,7 @@ Options:
 import json
 import logging
 import random
+import sys
 
 from docopt import docopt
 
@@ -28,9 +29,10 @@ BOARD_SIZE = 14
 MOVES_LIMIT = 25
 
 
-def config_logging(verbose):
+def config_logging(verbose=False, use_stdout=False):
     ''' Configure logging based on command line params '''
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+    logging.basicConfig(stream=sys.stdout if use_stdout else sys.stderr,
+                        format='%(asctime)s %(levelname)s %(message)s',
                         level=logging.INFO if not verbose else logging.DEBUG)
 
 
@@ -151,12 +153,12 @@ def request_object_handler(dct):
     return dct
 
 
-def flood_it(json_req):
+def handle_request(json_req):
     py_req = ''
     if json_req and len(json_req) > 0:
         py_req = json.loads(json_req, object_hook=request_object_handler)
 
-    logging.debug(f'flood_it: py_req={py_req}')
+    logging.debug(f'handle_request: py_req={py_req}')
 
     if py_req and hasattr(py_req, 'color') and hasattr(py_req, 'state'):
         # continue game
@@ -168,7 +170,7 @@ def flood_it(json_req):
     else:
         # start a new game
         strategy = FloodItStrategy()
-        print(FloodItRequest(0, dict(strategy)))
+        print(FloodItRequest(0, strategy))
 
 
 if __name__ == "__main__":
