@@ -1,0 +1,10 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://192.168.1.50:31112
+functions:
+  flooditapi:
+    lang: python3
+    handler: ./flooditapi
+    image: flooditapi:latest
+
