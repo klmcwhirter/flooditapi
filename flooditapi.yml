@@ -6,5 +6,5 @@ functions:
   flooditapi:
     lang: python3
     handler: ./flooditapi
-    image: flooditapi:latest
+    image: klmcwhirter/flooditapi:armv7l
 
