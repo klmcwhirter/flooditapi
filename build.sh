@@ -11,6 +11,8 @@ function echocmd
     $*
 }
 
+echocmd faas-cli remove -f flooditapi.yml &
+
 echocmd rm -fr build
 
 echocmd faas-cli build -f flooditapi.yml --build-arg BUILDPLATFORM=linux/arm/v7 --build-arg TARGETPLATFORM=linux/arm/v7
@@ -26,13 +28,17 @@ fi
 
 if [ $rc -eq 0 ]
 then
-    echocmd faas-cli remove -f flooditapi.yml
-
-    echo give the push some time ...
-    sleep 10
+    kubectl rollout status -n openfaas-fn deploy/flooditapi
 
     echocmd faas-cli deploy -f flooditapi.yml
     rc=$?
+
+
+    while [[ "$(kubectl rollout status -n openfaas-fn deploy/flooditapi)" =~ "successfully|Depoyed" ]]
+    do
+        echo give the deploy some time ...
+        sleep 10
+    done
 fi
 
 exit $rc

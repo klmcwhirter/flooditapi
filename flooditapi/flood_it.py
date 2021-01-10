@@ -104,10 +104,11 @@ class FloodItStrategy(object):
 
     def win_check(self):
         self.move += 1
-        self.win_text = f'{MOVES_LIMIT - self.move + 1} moves left ...'
         if self.move <= MOVES_LIMIT:
             if self.all_squares_are_the_same():
                 self.win_text = "You win!"
+            else:
+                self.win_text = f'{MOVES_LIMIT - self.move} moves left ...'
         else:
             self.win_text = f'You lost :( {self.win_text}'
 
