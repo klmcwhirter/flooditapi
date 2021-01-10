@@ -26,7 +26,7 @@ COLOR_CHOICES = ['black', 'darkgray', 'gray', 'white', 'red',
                  'orange', 'yellow', 'tan', 'green', 'cyan',
                  'lightblue', 'blue', 'violet', 'purple']
 BOARD_SIZE = 14
-MOVES_LIMIT = 25
+MOVES_LIMIT = 26
 
 
 def config_logging(verbose=False, use_stdout=False):
@@ -47,7 +47,7 @@ class FloodItStrategy(object):
 
         self.board_size = board_size
         self.color_choices = color_choices
-        self.win_text = ''
+        self.win_text = f'{MOVES_LIMIT - self.move} moves left ...'
 
         logging.debug(f'FloodItStrategy.__init__: colors={colors}, board={board}')
         if board:
@@ -104,13 +104,12 @@ class FloodItStrategy(object):
 
     def win_check(self):
         self.move += 1
+        self.win_text = f'{MOVES_LIMIT - self.move + 1} moves left ...'
         if self.move <= MOVES_LIMIT:
             if self.all_squares_are_the_same():
                 self.win_text = "You win!"
-            else:
-                self.win_text = f'{MOVES_LIMIT - self.move + 1} moves left ...'
         else:
-            self.win_text = "You lost :("
+            self.win_text = f'You lost :( {self.win_text}'
 
     @staticmethod
     def from_json(state):
@@ -182,4 +181,4 @@ if __name__ == "__main__":
     with open(opts['-f'], 'r', encoding='utf-8') as req:
         json_req = req.read()
 
-    flood_it(json_req)
+    handle_request(json_req)
