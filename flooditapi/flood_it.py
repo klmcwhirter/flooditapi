@@ -12,9 +12,7 @@ Options:
 '''
 
 import json
-import logging
 import random
-import sys
 
 from docopt import docopt
 
@@ -29,16 +27,25 @@ BOARD_SIZE = 14
 MOVES_LIMIT = 26
 
 
-def config_logging(verbose=False, use_stdout=False):
-    ''' Configure logging based on command line params '''
-    logging.basicConfig(stream=sys.stdout if use_stdout else sys.stderr,
-                        format='%(asctime)s %(levelname)s %(message)s',
-                        level=logging.INFO if not verbose else logging.DEBUG)
-
-
 def randomize_colors(color_choices):
     random.shuffle(color_choices)
     return color_choices[:6]
+
+
+messages = []
+
+
+def log(message):
+    messages.append(message)
+
+
+def null_logger(message):
+    pass
+
+
+def set_null_logger():
+    global log
+    log = null_logger
 
 
 class FloodItStrategy(object):
@@ -49,12 +56,14 @@ class FloodItStrategy(object):
         self.color_choices = color_choices
         self.win_text = f'{MOVES_LIMIT - self.move} moves left ...'
 
-        logging.debug(f'FloodItStrategy.__init__: colors={colors}, board={board}')
+        log(f'FloodItStrategy.__init__: colors={colors}')
+
         if board:
             self.board = board
             self.colors = colors
         else:
-            logging.debug('FloodItStrategy.__init__: board not provided - resetting game ...')
+            log('FloodItStrategy.__init__: board not provided - resetting game ...')
+
             self.board = [[None for x in range(board_size)]
                           for y in range(board_size)]
             self.colors = randomize_colors(self.color_choices)
@@ -115,68 +124,92 @@ class FloodItStrategy(object):
     @staticmethod
     def from_json(state):
         ''' Convert json to FloodItStrategy instance '''
-        logging.debug(f'FloodItStrategy.from_json: state={state}, type={type(state)}')
-        if '__type__' in state and state['__type__'] == 'state':
-            logging.debug('FloodItStrategy.from_json: loading state via init ...')
+        log(f'FloodItStrategy.from_json: state={state}, type={type(state)}')
+
+        if state and '__type__' in state and state['__type__'] == 'state':
+            log('FloodItStrategy.from_json: loading state via init ...')
+
+            log(f'FloodItStrategy.from_json: type(state["board"])={type(state["board"])}')
+
             strategy = FloodItStrategy(state['move'],
                                        state['board'],
                                        state['colors'],
                                        state['board_size'],
                                        state['color_choices'])
-            logging.debug(f'FloodItStrategy.from_json: strategy={type(strategy)}')
+            log(f'FloodItStrategy.from_json: strategy={type(strategy)}')
         else:
-            logging.debug('FloodItStrategy.from_json: clearing game')
+            log('FloodItStrategy.from_json: clearing game')
             strategy = FloodItStrategy()
 
         return strategy
 
 
 class FloodItRequest(object):
-    def __init__(self, color, state):
+    def __init__(self, __type__, color, state, verbose=False):
+        self.__type__ = __type__
         self.color = color
         self.state = state
+        self.verbose = verbose
+        self.messages = []
 
     def __str__(self):
-        return f'{{ "__type__": "req", "color": {self.color}, "state": {self.state} }}'
+        return f'{{ "__type__": "{self.__type__}", "messages": {self.messages}, "color": {self.color}, ' + \
+            f'"state": {self.state}, "verbose": {json.dumps(self.verbose)} }}'
 
 
 def request_object_handler(dct):
-    logging.debug(f'request_object_handler: dct={dct}')
+    log('in request_object_handler')
 
-    if '__type__' in dct and dct['__type__'] == 'req':
-        request = FloodItRequest(dct['color'], FloodItStrategy.from_json(dct['state']))
-        logging.debug(f'request_object_handler: hook returning request ... state={type(request.state)}')
+    if '__type__' in dct and dct['__type__'] == 'color':
+        request = FloodItRequest('color',
+                                 dct.get('color', 0),
+                                 FloodItStrategy.from_json(dct.get('state')),
+                                 dct.get('verbose'))
+
+        log(f'request_object_handler: hook returning request ... state={type(request.state)}')
+
         return request
 
-    logging.debug('request_object_handler: hook returning')
+    if '__type__' in dct and dct['__type__'] == 'reset':
+        request = FloodItRequest('reset', 0, FloodItStrategy(), dct.get('verbose', False))
+
+        log('request_object_handler: hook returning reset')
+
+        return request
+
+    log('request_object_handler: hook returning')
 
     return dct
 
 
 def handle_request(json_req):
-    py_req = ''
+    py_req = {}
     if json_req and len(json_req) > 0:
         py_req = json.loads(json_req, object_hook=request_object_handler)
 
-    logging.debug(f'handle_request: py_req={py_req}')
+    verbose = False
+    if py_req is FloodItRequest:
+        verbose = py_req.verbose
 
-    if py_req and hasattr(py_req, 'color') and hasattr(py_req, 'state'):
+    if not verbose:
+        set_null_logger()
+
+    log(f'handle_request: py_req={py_req}')
+
+    if py_req and hasattr(py_req, '__type__') and py_req.__type__ == 'color':
         # continue game
-        strategy = py_req.state
-        flood_color = strategy.colors[py_req.color]
-        strategy.select_color(flood_color)
-        py_req.state = strategy
-        print(py_req)
-    else:
-        # start a new game
-        strategy = FloodItStrategy()
-        print(FloodItRequest(0, strategy))
+        flood_color = py_req.state.colors[py_req.color]
+        py_req.state.select_color(flood_color)
+
+    if verbose:
+        py_req.messages = json.dumps(messages)
+
+    print(py_req)
 
 
 if __name__ == "__main__":
     opts = docopt(__doc__, version='0.1')
     # print(opts)
-    config_logging(opts['-v'])
 
     json_req = ''
     with open(opts['-f'], 'r', encoding='utf-8') as req:
